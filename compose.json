@@ -1,0 +1,25 @@
+{
+    "name": "kambasms/php-sdk",
+    "description": "SDK oficial da KambaSMS para envio de mensagens em Angola",
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "KambaSMS",
+            "email": "support@kambasms.ao"
+        }
+    ],
+    "require": {
+        "php": "^8.0",
+        "ext-curl": "*",
+        "ext-json": "*"
+    },
+    "autoload": {
+        "psr-4": {
+            "KambaSMS\\": "src/"
+        }
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^9.5"
+    }
+}

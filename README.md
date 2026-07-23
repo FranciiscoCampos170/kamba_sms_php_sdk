@@ -198,13 +198,13 @@ E depois usar em qualquer Controller: public function __construct(private \Kamba
 
 ## 📚 Documentação Completa
 
-Para mais detalhes sobre endpoints avançados, webhooks de entrega e gestão de conta, consulta a [Documentação Oficial da KambaSMS](https://kambasms.ao/docs).
+Para mais detalhes sobre endpoints avançados, webhooks de entrega e gestão de conta, consulta a [Documentação Oficial da KambaSMS](https://www.kambasms.ao/dashboard/docs).
 
 ## 🆘 Suporte
 
 Encontraste um bug ou tens uma sugestão?
 
-- Abre uma [Issue neste repositório](https://github.com/kambasms/php-sdk/issues).
+- Abre uma [Issue neste repositório](https://github.com/FranciiscoCampos170/kamba_sms_php_sdk/issues).
 - Contacta a nossa equipa: [support@kambasms.ao](mailto:support@kambasms.ao).
 
 ## 📄 Licença

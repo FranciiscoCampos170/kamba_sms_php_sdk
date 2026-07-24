@@ -5,6 +5,7 @@ use KambaSMS\Exceptions\KambaAPIException;
 use KambaSMS\Exceptions\KambaException;
 use KambaSMS\Resources\SmsResource;
 use KambaSMS\Resources\AccountResource;
+use KambaSMS\Resources\OtpResource;
 
 class KambaSMS {
     private string $apiKey;
@@ -12,6 +13,7 @@ class KambaSMS {
 
     public readonly SmsResource $sms;
     public readonly AccountResource $account;
+    public readonly OtpResource $otp;
 
     public function __construct(string $apiKey, string $baseUrl = 'https://nexasms-api.onrender.com') {
         if (empty($apiKey)) {
@@ -22,6 +24,7 @@ class KambaSMS {
 
         $this->sms = new SmsResource($this);
         $this->account = new AccountResource($this);
+        $this->otp = new OtpResource($this);
     }
 
     /**

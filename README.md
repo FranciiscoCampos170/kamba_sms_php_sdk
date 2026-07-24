@@ -134,6 +134,49 @@ $history = $client->account->getHistory(limit: 10);
 
 print_r($history);
 ```
+
+## 🔐 Serviço OTP
+
+Serviço gerido de autenticação por SMS. Rate limiting (3 por hora por número), expiração (5 minutos) e validação incluídos.
+
+### Enviar OTP
+
+```php
+$otp = $client->otp->send([
+    'phone' => '+244912345678',
+]);
+
+echo 'Expira em: ' . $otp['expires_in'] . ' segundos';
+// → Expira em: 300 segundos
+```
+
+### Verificar OTP
+
+> ⚠️ O endpoint `verify` é público — não requer API Key. Pode ser chamado diretamente do frontend.
+
+```php
+$result = $client->otp->verify([
+    'phone' => '+244912345678',
+    'code'  => '123456',
+]);
+
+if ($result['success']) {
+    echo "✅ Código válido!";
+} else {
+    echo "❌ Código inválido ou expirado.";
+}
+```
+
+### Regras do OTP
+
+| Regra | Valor |
+| --- | --- |
+| Formato do código | 6 dígitos numéricos |
+| Validade | 5 minutos |
+| Rate limit (envio) | 3 OTPs/hora por número |
+| Rate limit (verificação) | 20 tentativas/15min |
+| Custo | 1 crédito SMS por envio |
+
 ## 🛡️ Regras de Validação (Específicas para Angola)
 
 O SDK faz validações automáticas no lado do cliente para garantir que a tua mensagem não seja bloqueada pelas operadoras (Unitel, Africell, Movicel). Se estas regras forem violadas, o SDK lança uma `KambaValidationException` **sem sequer fazer a chamada à API**.

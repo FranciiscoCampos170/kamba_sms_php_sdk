@@ -3,71 +3,67 @@ namespace KambaSMS;
 
 use KambaSMS\Exceptions\KambaAPIException;
 use KambaSMS\Exceptions\KambaException;
-use KambaSMS\Resources\SmsResource;
+use KambaSMS\Exceptions\KambaValidationException;
 use KambaSMS\Resources\AccountResource;
+use KambaSMS\Resources\EmailResource;
+use KambaSMS\Resources\LookupResource;
+use KambaSMS\Resources\NotifyResource;
 use KambaSMS\Resources\OtpResource;
+use KambaSMS\Resources\SmsResource;
+use KambaSMS\Resources\TransactionsResource;
+use KambaSMS\Resources\VerifyResource;
 
 class KambaSMS {
     private string $apiKey;
     private string $baseUrl;
+    private int $timeout;
+    public SmsResource $sms;
+    public AccountResource $account;
+    public OtpResource $otp;
+    public VerifyResource $verify;
+    public LookupResource $lookup;
+    public NotifyResource $notify;
+    public EmailResource $email;
+    public TransactionsResource $transactions;
 
-    public readonly SmsResource $sms;
-    public readonly AccountResource $account;
-    public readonly OtpResource $otp;
-
-    public function __construct(string $apiKey, string $baseUrl = 'https://nexasms-api.onrender.com') {
-        if (empty($apiKey)) {
-            throw new KambaException('A apiKey é obrigatória para inicializar o KambaSMS.');
+    public function __construct(string $apiKey, string $baseUrl = 'https://api.kambasms.ao', int $timeout = 30) {
+        if (trim($apiKey) === '') throw new KambaValidationException('A apiKey é obrigatória.');
+        $parts = parse_url($baseUrl);
+        if (!$parts || !in_array($parts['scheme'] ?? '', ['http', 'https'], true) || empty($parts['host']) || isset($parts['query'], $parts['fragment'], $parts['user'])) {
+            throw new KambaValidationException('baseUrl deve ser uma URL HTTP(S) sem credenciais, query ou fragmento.');
         }
-        $this->apiKey = $apiKey;
-        $this->baseUrl = rtrim($baseUrl, '/');
-
-        $this->sms = new SmsResource($this);
-        $this->account = new AccountResource($this);
-        $this->otp = new OtpResource($this);
+        if ($timeout < 1) throw new KambaValidationException('timeout deve ser positivo.');
+        $this->apiKey = $apiKey; $this->baseUrl = rtrim($baseUrl, '/'); $this->timeout = $timeout;
+        $this->sms = new SmsResource($this); $this->account = new AccountResource($this); $this->otp = new OtpResource($this);
+        $this->verify = new VerifyResource($this); $this->lookup = new LookupResource($this); $this->notify = new NotifyResource($this);
+        $this->email = new EmailResource($this); $this->transactions = new TransactionsResource($this);
     }
 
-    /**
-     * @throws KambaAPIException
-     * @throws KambaException
-     */
-    public function request(string $method, string $endpoint, array $data = []): array {
-        $url = $this->baseUrl . $endpoint;
+    public function request(string $method, string $endpoint, ?array $data = null, array $options = []) {
+        if (!str_starts_with($endpoint, '/') || str_starts_with($endpoint, '//')) throw new KambaValidationException('Endpoint inválido.');
+        $headers = ['Content-Type: application/json', 'x-api-key: ' . $this->apiKey];
+        foreach ([['Idempotency-Key', $options['idempotency_key'] ?? null, 200], ['X-Request-Id', $options['request_id'] ?? null, 100]] as [$name, $value, $max]) {
+            if ($value !== null) {
+                if (!is_string($value) || strlen($value) < 8 || strlen($value) > $max || !preg_match('/^[A-Za-z0-9._:-]+$/', $value)) throw new KambaValidationException("{$name} inválido.");
+                $headers[] = $name . ': ' . $value;
+            }
+        }
+        $responseHeaders = [];
         $ch = curl_init();
-
-        $headers = [
-            'Content-Type: application/json',
-            'x-api-key: ' . $this->apiKey
-        ];
-
-        curl_setopt_array($ch, [
-            CURLOPT_URL => $url,
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_HTTPHEADER => $headers,
-            CURLOPT_CUSTOMREQUEST => $method,
-            CURLOPT_TIMEOUT => 30,
-        ]);
-
-        if ($method === 'POST' || $method === 'PUT') {
-            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+        curl_setopt_array($ch, [CURLOPT_URL => $this->baseUrl . $endpoint, CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_HTTPHEADER => $headers, CURLOPT_CUSTOMREQUEST => strtoupper($method), CURLOPT_TIMEOUT => $this->timeout,
+            CURLOPT_FOLLOWLOCATION => false, CURLOPT_HEADERFUNCTION => function ($curl, string $line) use (&$responseHeaders): int {
+                $parts = explode(':', $line, 2); if (count($parts) === 2) $responseHeaders[trim($parts[0])] = trim($parts[1]); return strlen($line);
+            }]);
+        if ($data !== null) curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
+        $raw = curl_exec($ch); $status = curl_getinfo($ch, CURLINFO_HTTP_CODE); $curlError = curl_error($ch); curl_close($ch);
+        if ($raw === false || $curlError) throw new KambaAPIException('Erro de rede ao comunicar com a KambaSMS.', 0, $curlError ?: null);
+        if ($raw === '') $result = null;
+        else { try { $result = json_decode($raw, true, 512, JSON_THROW_ON_ERROR); } catch (\JsonException $error) { throw new KambaAPIException('Resposta não JSON da API KambaSMS.', $status, $raw, $responseHeaders); } }
+        if ($status >= 400) {
+            $message = is_array($result) ? ($result['error'] ?? $result['message'] ?? 'Erro na API KambaSMS.') : 'Erro na API KambaSMS.';
+            throw new KambaAPIException((string)$message, $status, $result, $responseHeaders);
         }
-
-        $response = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        $curlError = curl_error($ch);
-        curl_close($ch);
-
-        if ($curlError) {
-            throw new KambaException("Erro de rede: " . $curlError);
-        }
-
-        $result = json_decode($response, true);
-
-        if ($httpCode >= 400) {
-            $message = $result['error'] ?? 'Erro desconhecido na API KambaSMS';
-            throw new KambaAPIException($message, $httpCode, $result);
-        }
-
-        return $result ?? [];
+        return $result;
     }
 }

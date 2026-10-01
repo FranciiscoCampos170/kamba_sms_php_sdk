@@ -19,9 +19,9 @@ try {
     // 3. Enviar SMS Único
     $sms = $client->sms->send([
         'to' => '+244923456789',
-        'text' => 'Ola! Este e um teste do SDK KambaSMS PHP.',
+        'text' => 'O seu pedido foi recebido e está em processamento.',
         'sender_id' => 'KAMBA'
-    ]);
+    ], ['idempotency_key' => 'order:example:123']);
     echo "✅ SMS Enviado! ID: " . $sms['message_id'] . " | Saldo restante: " . $sms['remaining_balance'] . "\n";
 
     // 4. Testar Validação do SDK (Isto vai falhar ANTES de chamar a API)
